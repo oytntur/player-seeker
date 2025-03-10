@@ -1,6 +1,7 @@
 <h1>Player Seeker</h1>
 
 <span>{{ randomPlayer() | json }}</span>
+<span>{{ currentHints() | json }}</span>
 <span>{{ playerScore() | json }}</span>
 
 <mat-form-field class="example-full-width">
@@ -19,5 +20,8 @@
 </mat-form-field>
 
 <button mat-flat-button (click)="checkAnswer()">Oyuncuyu Seç</button>
+<button mat-flat-button (click)="getPlayerHint()" color="secondary">
+  Yardım Al
+</button>
 
 <router-outlet />

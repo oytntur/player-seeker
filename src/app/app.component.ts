@@ -62,6 +62,9 @@ export class AppComponent {
   filteredOptions$: Observable<PlayerData[]>;
 
   randomPlayer = signal<PlayerData | undefined>(undefined);
+  randomPlayerHints = signal<string[]>([]);
+
+  currentHints = signal<string[]>([]);
 
   playerScore = signal(0);
 
@@ -78,12 +81,43 @@ export class AppComponent {
 
   getRandomPlayer() {
     const randomIndex = Math.floor(Math.random() * this.options.length);
-    this.randomPlayer.set(this.options[randomIndex]);
+    const randomPlayer = this.options[randomIndex];
+    this.randomPlayer.set(randomPlayer);
     this.playerScore.update((score) => score + 100);
+    const carrierTimelineHints = randomPlayer.career_timeline.map(
+      (timeline) =>
+        `${timeline.season} sezon/sezonlarinda ${timeline.club}'te oynamıştır.`
+    );
+    this.randomPlayerHints.set([
+      ...carrierTimelineHints,
+      `Şu an ${randomPlayer.current_club}'te oynamaktadır.`,
+      `Doğum yeri ${randomPlayer.birth_place}'dir.`,
+      `Doğum tarihi ${randomPlayer.birth_date}'dir.`,
+      `Pozisyonu ${randomPlayer.position}'dir.`,
+      `Yaşı ${randomPlayer.age}'dir.`,
+      `Toplamda ${randomPlayer.clubs_played.length} farklı kulüpte oynamıştır.`,
+    ]);
   }
 
   displayFn(user: PlayerData): string {
     return user && user.name ? user.name : '';
+  }
+
+  getPlayerHint() {
+    const randomPlayerHints = this.randomPlayerHints();
+
+    if (randomPlayerHints.length === 0) {
+      alert('Hint Kalmadi.');
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * randomPlayerHints.length);
+    //get hint from randomPlayerHints then remove it from the list
+    const hint = randomPlayerHints[randomIndex];
+    randomPlayerHints.splice(randomIndex, 1);
+    this.randomPlayerHints.set([...randomPlayerHints]);
+    this.currentHints.update((hints) => [...hints, hint]);
+    this.playerScore.update((score) => score - 5);
   }
 
   checkAnswer() {
@@ -101,6 +135,8 @@ export class AppComponent {
       //show alert that the answer is correct
       alert('Correct Answer');
       this.getRandomPlayer();
+      this.currentHints.set([]);
+      this.myControl.reset();
     } else {
       this.playerScore.update((score) => score - 1);
     }
