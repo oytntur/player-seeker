@@ -5,11 +5,20 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatOptionModule } from '@angular/material/core';
-// import playerData from '../../public/assets/players.json';
+import playerData from '../../public/assets/players.json';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { firstValueFrom, map, Observable, startWith } from 'rxjs';
+import {
+  firstValueFrom,
+  map,
+  Observable,
+  startWith,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { AsyncPipe, isPlatformServer, JsonPipe } from '@angular/common';
-import Cloudflare from 'cloudflare';
+import { CloudflareApiHelper } from './helpers/services/cloudflare-api-helper.service';
+import { PlayerOption } from './helpers/types/player.types';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 
 type Transfer = {
   from: string;
@@ -58,72 +67,64 @@ type PlayerData = {
 })
 export class AppComponent {
   title = 'player-seeker';
-  myControl = new FormControl<string | PlayerData>('');
-  // options: PlayerData[] = JSON.parse(JSON.stringify(playerData));
-  options: PlayerData[] = [];
-  filteredOptions$: Observable<PlayerData[]> = new Observable();
+  myControl = new FormControl<string | PlayerOption>('');
+  options: PlayerOption[] = JSON.parse(JSON.stringify(playerData));
+  filteredOptions$: Observable<PlayerOption[]> = new Observable();
 
+  randomPlayerIndex = signal(Math.floor(Math.random() * this.options.length));
+  randomPlayerIndex$ = toObservable(this.randomPlayerIndex);
   randomPlayer = signal<PlayerData | undefined>(undefined);
   randomPlayerHints = signal<string[]>([]);
 
   currentHints = signal<string[]>([]);
 
-  playerScore = signal(0);
-
-  cloudflareClient = new Cloudflare({
-    apiToken: 'xRbfaYuP7PAFrF4LE7GVyL2j7turZKC98wWTvIuo',
-  });
+  playerScore = signal(100);
+  cloudflareApiHelper = inject(CloudflareApiHelper);
 
   platformId = inject(PLATFORM_ID);
 
   constructor() {
-    // this.filteredOptions$ = this.myControl.valueChanges.pipe(
-    //   startWith(''),
-    //   map((value) => {
-    //     const name = typeof value === 'string' ? value : value?.name;
-    //     return name ? this._filter(name as string) : this.options.slice();
-    //   })
-    // );
-    // this.getRandomPlayer();
+    this.randomPlayerIndex$
+      .pipe(
+        takeUntilDestroyed(),
+        switchMap((randomIndex) => {
+          return this.cloudflareApiHelper.getPlayerData(
+            this.options[randomIndex].player_id
+          );
+        }),
+        tap((playerDataPayload) => {
+          console.log(playerDataPayload.value);
+          const playerData: PlayerData = JSON.parse(
+            `${playerDataPayload.value}`
+          );
+          console.log(playerData);
 
-    if (isPlatformServer(this.platformId)) {
-      console.log('getting data from cloudflare testing ');
-      fetch(
-        'https://api.cloudflare.com/client/v4/accounts/3178c0d2061751d76bd2ec9ebbf13921/storage/kv/namespaces/b41f8509cf73416e8b71cafff02fd96e/values/players/5110',
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer xRbfaYuP7PAFrF4LE7GVyL2j7turZKC98wWTvIuo',
-            mode: 'no-cors',
-          },
-        }
+          this.randomPlayer.set(playerData);
+          const carrierTimelineHints = playerData.career_timeline.map(
+            (timeline) =>
+              `${timeline.season} sezon/sezonlarinda ${timeline.club}'te oynamıştır.`
+          );
+          this.randomPlayerHints.set([
+            ...carrierTimelineHints,
+            `Şu an ${playerData.current_club}'te oynamaktadır.`,
+            `Doğum yeri ${playerData.birth_place}'dir.`,
+            `Doğum tarihi ${playerData.birth_date}'dir.`,
+            `Pozisyonu ${playerData.position}'dir.`,
+            `Yaşı ${playerData.age}'dir.`,
+            `Toplamda ${playerData.clubs_played.length} farklı kulüpte oynamıştır.`,
+          ]);
+        })
       )
-        .then((response) => response.json())
-        .then((data) => console.log(data));
-    }
-
-    this.testGetData();
+      .subscribe();
   }
 
   getRandomPlayer() {
     const randomIndex = Math.floor(Math.random() * this.options.length);
-    const randomPlayer = this.options[randomIndex];
-    this.randomPlayer.set(randomPlayer);
+    this.randomPlayerIndex.set(randomIndex);
+    //remove the index from the options
+    this.options.splice(randomIndex, 1);
+
     this.playerScore.update((score) => score + 100);
-    const carrierTimelineHints = randomPlayer.career_timeline.map(
-      (timeline) =>
-        `${timeline.season} sezon/sezonlarinda ${timeline.club}'te oynamıştır.`
-    );
-    this.randomPlayerHints.set([
-      ...carrierTimelineHints,
-      `Şu an ${randomPlayer.current_club}'te oynamaktadır.`,
-      `Doğum yeri ${randomPlayer.birth_place}'dir.`,
-      `Doğum tarihi ${randomPlayer.birth_date}'dir.`,
-      `Pozisyonu ${randomPlayer.position}'dir.`,
-      `Yaşı ${randomPlayer.age}'dir.`,
-      `Toplamda ${randomPlayer.clubs_played.length} farklı kulüpte oynamıştır.`,
-    ]);
   }
 
   displayFn(user: PlayerData): string {
@@ -169,32 +170,11 @@ export class AppComponent {
     }
   }
 
-  private _filter(name: string): PlayerData[] {
+  private _filter(name: string): PlayerOption[] {
     const filterValue = name.toLowerCase();
 
     return this.options.filter((option) =>
       option.name.toLowerCase().includes(filterValue)
     );
-  }
-
-  async testGetData(): Promise<unknown> {
-    try {
-      if (isPlatformServer(this.platformId)) {
-        console.log('getting data from cloudflare');
-        return this.cloudflareClient.kv.namespaces.values
-          .get('b41f8509cf73416e8b71cafff02fd96e', 'players/5111', {
-            account_id: '3178c0d2061751d76bd2ec9ebbf13921',
-          })
-          .then(async (data) => {
-            console.log('data.json()', await data.json());
-            return data.json();
-          })
-          .catch((error) => {
-            console.log('error', error);
-          });
-      }
-    } catch (error) {
-      console.log('error', error);
-    }
   }
 }
