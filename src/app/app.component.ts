@@ -1,14 +1,15 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, PLATFORM_ID, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatOptionModule } from '@angular/material/core';
-import playerData from '../../public/assets/players.json';
+// import playerData from '../../public/assets/players.json';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { map, Observable, startWith } from 'rxjs';
-import { AsyncPipe, JsonPipe } from '@angular/common';
+import { firstValueFrom, map, Observable, startWith } from 'rxjs';
+import { AsyncPipe, isPlatformServer, JsonPipe } from '@angular/common';
+import Cloudflare from 'cloudflare';
 
 type Transfer = {
   from: string;
@@ -58,8 +59,9 @@ type PlayerData = {
 export class AppComponent {
   title = 'player-seeker';
   myControl = new FormControl<string | PlayerData>('');
-  options: PlayerData[] = JSON.parse(JSON.stringify(playerData));
-  filteredOptions$: Observable<PlayerData[]>;
+  // options: PlayerData[] = JSON.parse(JSON.stringify(playerData));
+  options: PlayerData[] = [];
+  filteredOptions$: Observable<PlayerData[]> = new Observable();
 
   randomPlayer = signal<PlayerData | undefined>(undefined);
   randomPlayerHints = signal<string[]>([]);
@@ -68,15 +70,40 @@ export class AppComponent {
 
   playerScore = signal(0);
 
+  cloudflareClient = new Cloudflare({
+    apiToken: 'xRbfaYuP7PAFrF4LE7GVyL2j7turZKC98wWTvIuo',
+  });
+
+  platformId = inject(PLATFORM_ID);
+
   constructor() {
-    this.filteredOptions$ = this.myControl.valueChanges.pipe(
-      startWith(''),
-      map((value) => {
-        const name = typeof value === 'string' ? value : value?.name;
-        return name ? this._filter(name as string) : this.options.slice();
-      })
-    );
-    this.getRandomPlayer();
+    // this.filteredOptions$ = this.myControl.valueChanges.pipe(
+    //   startWith(''),
+    //   map((value) => {
+    //     const name = typeof value === 'string' ? value : value?.name;
+    //     return name ? this._filter(name as string) : this.options.slice();
+    //   })
+    // );
+    // this.getRandomPlayer();
+
+    if (isPlatformServer(this.platformId)) {
+      console.log('getting data from cloudflare testing ');
+      fetch(
+        'https://api.cloudflare.com/client/v4/accounts/3178c0d2061751d76bd2ec9ebbf13921/storage/kv/namespaces/b41f8509cf73416e8b71cafff02fd96e/values/players/5110',
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer xRbfaYuP7PAFrF4LE7GVyL2j7turZKC98wWTvIuo',
+            mode: 'no-cors',
+          },
+        }
+      )
+        .then((response) => response.json())
+        .then((data) => console.log(data));
+    }
+
+    this.testGetData();
   }
 
   getRandomPlayer() {
@@ -103,7 +130,7 @@ export class AppComponent {
     return user && user.name ? user.name : '';
   }
 
-  getPlayerHint() {
+  async getPlayerHint() {
     const randomPlayerHints = this.randomPlayerHints();
 
     if (randomPlayerHints.length === 0) {
@@ -148,5 +175,26 @@ export class AppComponent {
     return this.options.filter((option) =>
       option.name.toLowerCase().includes(filterValue)
     );
+  }
+
+  async testGetData(): Promise<unknown> {
+    try {
+      if (isPlatformServer(this.platformId)) {
+        console.log('getting data from cloudflare');
+        return this.cloudflareClient.kv.namespaces.values
+          .get('b41f8509cf73416e8b71cafff02fd96e', 'players/5111', {
+            account_id: '3178c0d2061751d76bd2ec9ebbf13921',
+          })
+          .then(async (data) => {
+            console.log('data.json()', await data.json());
+            return data.json();
+          })
+          .catch((error) => {
+            console.log('error', error);
+          });
+      }
+    } catch (error) {
+      console.log('error', error);
+    }
   }
 }
