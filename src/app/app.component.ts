@@ -8,6 +8,7 @@ import { MatOptionModule } from '@angular/material/core';
 import playerData from '../../public/assets/players.json';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import {
+  filter,
   firstValueFrom,
   map,
   Observable,
@@ -71,21 +72,32 @@ export class AppComponent {
   options: PlayerOption[] = JSON.parse(JSON.stringify(playerData));
   filteredOptions$: Observable<PlayerOption[]> = new Observable();
 
-  randomPlayerIndex = signal(Math.floor(Math.random() * this.options.length));
+  randomPlayerIndex = signal<number | undefined>(undefined);
   randomPlayerIndex$ = toObservable(this.randomPlayerIndex);
   randomPlayer = signal<PlayerData | undefined>(undefined);
   randomPlayerHints = signal<string[]>([]);
 
   currentHints = signal<string[]>([]);
 
-  playerScore = signal(100);
+  playerScore = signal(0);
   cloudflareApiHelper = inject(CloudflareApiHelper);
 
   platformId = inject(PLATFORM_ID);
 
   constructor() {
+    this.filteredOptions$ = this.myControl.valueChanges.pipe(
+      startWith(''),
+      map((value) => {
+        const name = typeof value === 'string' ? value : value?.name;
+        return name ? this._filter(name as string) : this.options.slice();
+      })
+    );
+
+    this.getRandomPlayer();
+
     this.randomPlayerIndex$
       .pipe(
+        filter((randomIndex) => randomIndex !== undefined),
         takeUntilDestroyed(),
         switchMap((randomIndex) => {
           return this.cloudflareApiHelper.getPlayerData(
@@ -158,6 +170,9 @@ export class AppComponent {
     ) {
       return;
     }
+
+    console.log(selectedPlayer);
+    console.log(randomPlayer);
 
     if (selectedPlayer.player_id === randomPlayer.player_id) {
       //show alert that the answer is correct
