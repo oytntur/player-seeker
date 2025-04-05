@@ -1,4 +1,10 @@
-import { Component, inject, PLATFORM_ID, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  inject,
+  PLATFORM_ID,
+  signal,
+} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,6 +20,7 @@ import {
   Observable,
   startWith,
   switchMap,
+  take,
   tap,
 } from 'rxjs';
 import { AsyncPipe, isPlatformServer, JsonPipe } from '@angular/common';
@@ -69,7 +76,7 @@ type PlayerData = {
 export class AppComponent {
   title = 'player-seeker';
   myControl = new FormControl<string | PlayerOption>('');
-  options: PlayerOption[] = JSON.parse(JSON.stringify(playerData));
+  options: PlayerOption[] = [];
   filteredOptions$: Observable<PlayerOption[]> = new Observable();
 
   randomPlayerIndex = signal<number | undefined>(undefined);
@@ -83,6 +90,7 @@ export class AppComponent {
   cloudflareApiHelper = inject(CloudflareApiHelper);
 
   platformId = inject(PLATFORM_ID);
+  destroyRef = inject(DestroyRef);
 
   constructor() {
     this.filteredOptions$ = this.myControl.valueChanges.pipe(
@@ -93,41 +101,60 @@ export class AppComponent {
       })
     );
 
-    this.getRandomPlayer();
+    firstValueFrom(this.cloudflareApiHelper.getPlayerOptions())
+      .then((response) => {
+        console.log('response', response);
+        const payload = response;
+        console.log('payload', payload);
+        const data = payload.result.players;
+        console.log('data', data);
+        this.options = data.map((player: { id: number; name: string }) => ({
+          player_id: player.id,
+          name: player.name,
+        }));
 
-    this.randomPlayerIndex$
-      .pipe(
-        filter((randomIndex) => randomIndex !== undefined),
-        takeUntilDestroyed(),
-        switchMap((randomIndex) => {
-          return this.cloudflareApiHelper.getPlayerData(
-            this.options[randomIndex].player_id
-          );
-        }),
-        tap((playerDataPayload) => {
-          console.log(playerDataPayload.value);
-          const playerData: PlayerData = JSON.parse(
-            `${playerDataPayload.value}`
-          );
-          console.log(playerData);
+        console.log('options', this.options);
+      })
+      .then(() => {
+        this.getRandomPlayer();
 
-          this.randomPlayer.set(playerData);
-          const carrierTimelineHints = playerData.career_timeline.map(
-            (timeline) =>
-              `${timeline.season} sezon/sezonlarinda ${timeline.club}'te oynamıştır.`
-          );
-          this.randomPlayerHints.set([
-            ...carrierTimelineHints,
-            `Şu an ${playerData.current_club}'te oynamaktadır.`,
-            `Doğum yeri ${playerData.birth_place}'dir.`,
-            `Doğum tarihi ${playerData.birth_date}'dir.`,
-            `Pozisyonu ${playerData.position}'dir.`,
-            `Yaşı ${playerData.age}'dir.`,
-            `Toplamda ${playerData.clubs_played.length} farklı kulüpte oynamıştır.`,
-          ]);
-        })
-      )
-      .subscribe();
+        this.randomPlayerIndex$
+          .pipe(
+            filter((randomIndex) => randomIndex !== undefined),
+            takeUntilDestroyed(this.destroyRef),
+            switchMap((randomIndex) => {
+              console.log('randomIndex', randomIndex);
+              console.log('options', this.options);
+              return this.cloudflareApiHelper.getPlayerData(
+                this.options[randomIndex].player_id
+              );
+            }),
+            tap((playerDataPayload) => {
+              console.log('returned value from get player', playerDataPayload);
+              const playerData: PlayerData = {
+                player_id: playerDataPayload.result.player.id,
+                ...playerDataPayload.result.player,
+              };
+              console.log(playerData);
+
+              this.randomPlayer.set(playerData);
+              const carrierTimelineHints = playerData.career_timeline.map(
+                (timeline) =>
+                  `${timeline.season} sezon/sezonlarinda ${timeline.club}'te oynamıştır.`
+              );
+              this.randomPlayerHints.set([
+                ...carrierTimelineHints,
+                `Şu an ${playerData.current_club}'te oynamaktadır.`,
+                `Doğum yeri ${playerData.birth_place}'dir.`,
+                `Doğum tarihi ${playerData.birth_date}'dir.`,
+                `Pozisyonu ${playerData.position}'dir.`,
+                `Yaşı ${playerData.age}'dir.`,
+                `Toplamda ${playerData.clubs_played.length} farklı kulüpte oynamıştır.`,
+              ]);
+            })
+          )
+          .subscribe();
+      });
   }
 
   getRandomPlayer() {
