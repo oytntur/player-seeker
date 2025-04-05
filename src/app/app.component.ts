@@ -11,7 +11,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatOptionModule } from '@angular/material/core';
-import playerData from '../../public/assets/players.json';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import {
   filter,
@@ -210,6 +209,12 @@ export class AppComponent {
     } else {
       this.playerScore.update((score) => score - 1);
     }
+  }
+
+  showAnswer() {
+    const randomPlayer = this.randomPlayer();
+    alert(`Cevap: ${randomPlayer?.name} - ${randomPlayer?.current_club}`);
+    this.playerScore.update((score) => score - 120);
   }
 
   private _filter(name: string): PlayerOption[] {

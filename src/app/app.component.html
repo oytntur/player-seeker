@@ -36,5 +36,13 @@
 >
   Yardım Al
 </button>
+<button
+  mat-flat-button
+  (click)="showAnswer()"
+  color="danger"
+  [disabled]="!randomPlayer()"
+>
+  Yardım Al
+</button>
 
 <router-outlet />
