@@ -10,14 +10,19 @@ import { PlayerData, PlayerOption } from '../types/player.types';
 import { isPlatformServer } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { ENVIRONMENT } from '../../../environments/enviroment.base';
 
 @Injectable({
   providedIn: 'root',
 })
 export class CloudflareApiHelper {
-  private workerUrl = 'https://api-player-seeker.oytntur.dev/api'; // Cloudflare Worker URL'nizi buraya ekleyin
+  environment = inject(ENVIRONMENT);
 
-  constructor(private http: HttpClient) {}
+  private workerUrl = this.environment.apiUrl; // Cloudflare Worker URL'nizi buraya ekleyin
+
+  constructor(private http: HttpClient) {
+    console.log('CloudflareApiHelper initialized with URL:', this.workerUrl);
+  }
 
   // Player verilerini almak için servis fonksiyonu
   getPlayerData(playerId: number): Observable<any> {
