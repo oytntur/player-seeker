@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "npm run build && wrangler pages dev dist/cloudflare --compatibility-date=2025-03-03",
-    "build": "jq -c . public/assets/players.json > public/assets/output.json && mv public/assets/output.json public/assets/players.json && ng build && npm run process",
+    "build": "ng build && npm run process",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:player-seeker": "node dist/player-seeker/server/server.mjs",
