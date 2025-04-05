@@ -102,17 +102,14 @@ export class AppComponent {
 
     firstValueFrom(this.cloudflareApiHelper.getPlayerOptions())
       .then((response) => {
-        console.log('response', response);
         const payload = response;
-        console.log('payload', payload);
+
         const data = payload.result.players;
-        console.log('data', data);
+
         this.options = data.map((player: { id: number; name: string }) => ({
           player_id: player.id,
           name: player.name,
         }));
-
-        console.log('options', this.options);
       })
       .then(() => {
         this.getRandomPlayer();
@@ -122,19 +119,15 @@ export class AppComponent {
             filter((randomIndex) => randomIndex !== undefined),
             takeUntilDestroyed(this.destroyRef),
             switchMap((randomIndex) => {
-              console.log('randomIndex', randomIndex);
-              console.log('options', this.options);
               return this.cloudflareApiHelper.getPlayerData(
                 this.options[randomIndex].player_id
               );
             }),
             tap((playerDataPayload) => {
-              console.log('returned value from get player', playerDataPayload);
               const playerData: PlayerData = {
                 player_id: playerDataPayload.result.player.id,
                 ...playerDataPayload.result.player,
               };
-              console.log(playerData);
 
               this.randomPlayer.set(playerData);
               const carrierTimelineHints = playerData.career_timeline.map(
@@ -197,9 +190,6 @@ export class AppComponent {
       return;
     }
 
-    console.log(selectedPlayer);
-    console.log(randomPlayer);
-
     if (selectedPlayer.player_id === randomPlayer.player_id) {
       //show alert that the answer is correct
       alert('Correct Answer');
@@ -214,6 +204,9 @@ export class AppComponent {
   showAnswer() {
     const randomPlayer = this.randomPlayer();
     alert(`Cevap: ${randomPlayer?.name} - ${randomPlayer?.current_club}`);
+    this.getRandomPlayer();
+    this.currentHints.set([]);
+    this.myControl.reset();
     this.playerScore.update((score) => score - 120);
   }
 

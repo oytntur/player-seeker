@@ -15,7 +15,7 @@ import { Observable } from 'rxjs';
   providedIn: 'root',
 })
 export class CloudflareApiHelper {
-  private workerUrl = 'https://api-player-seeker.oytntur.dev/api'; // Cloudflare Worker URL'nizi buraya ekleyin
+  private workerUrl = 'http://localhost:8787/api'; // Cloudflare Worker URL'nizi buraya ekleyin
 
   constructor(private http: HttpClient) {}
 

@@ -25,24 +25,31 @@
   </mat-autocomplete>
 </mat-form-field>
 
-<button mat-flat-button (click)="checkAnswer()" [disabled]="!randomPlayer()">
-  Oyuncuyu Seç
-</button>
-<button
-  mat-flat-button
-  (click)="getPlayerHint()"
-  color="secondary"
-  [disabled]="!randomPlayer()"
->
-  Yardım Al
-</button>
-<button
-  mat-flat-button
-  (click)="showAnswer()"
-  color="danger"
-  [disabled]="!randomPlayer()"
->
-  Yardım Al
-</button>
+<div class="buttons">
+  <button
+    mat-flat-button
+    color="primary"
+    (click)="checkAnswer()"
+    [disabled]="!randomPlayer()"
+  >
+    Oyuncuyu Seç
+  </button>
+  <button
+    mat-flat-button
+    (click)="getPlayerHint()"
+    color="primary"
+    [disabled]="!randomPlayer()"
+  >
+    Yardım Al
+  </button>
+  <button
+    mat-flat-button
+    (click)="showAnswer()"
+    color="accent"
+    [disabled]="!randomPlayer()"
+  >
+    Cevabı Göster
+  </button>
+</div>
 
 <router-outlet />
