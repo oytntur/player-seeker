@@ -13,6 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatOptionModule } from '@angular/material/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import {
+  debounceTime,
   filter,
   firstValueFrom,
   map,
@@ -22,39 +23,10 @@ import {
   take,
   tap,
 } from 'rxjs';
-import { AsyncPipe, isPlatformServer, JsonPipe } from '@angular/common';
+import { AsyncPipe, JsonPipe } from '@angular/common';
 import { CloudflareApiHelper } from './helpers/services/cloudflare-api-helper.service';
-import { PlayerOption } from './helpers/types/player.types';
+import { PlayerData, PlayerOption } from './helpers/types/player.types';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-
-type Transfer = {
-  from: string;
-  to: string;
-  date: string;
-  fee: string;
-};
-
-type TransferHistory = {
-  [season: string]: Transfer[];
-};
-
-type CareerTimeline = {
-  season: string;
-  club: string;
-};
-
-type PlayerData = {
-  player_id: number;
-  name: string;
-  birth_date: string;
-  position: string;
-  birth_place: string;
-  age: string;
-  transfer_history: TransferHistory;
-  career_timeline: CareerTimeline[];
-  clubs_played: string[];
-  current_club: string;
-};
 
 @Component({
   selector: 'app-root',
@@ -94,6 +66,7 @@ export class AppComponent {
   constructor() {
     this.filteredOptions$ = this.myControl.valueChanges.pipe(
       startWith(''),
+      debounceTime(300),
       map((value) => {
         const name = typeof value === 'string' ? value : value?.name;
         return name ? this._filter(name as string) : this.options.slice();
@@ -211,10 +184,24 @@ export class AppComponent {
   }
 
   private _filter(name: string): PlayerOption[] {
-    const filterValue = name.toLowerCase();
+    const normalizedSearch = this.normalizeString(name);
 
-    return this.options.filter((option) =>
-      option.name.toLowerCase().includes(filterValue)
-    );
+    return this.options.filter((option) => {
+      // Eğer option string ise
+      if (typeof option === 'string') {
+        return this.normalizeString(option).includes(normalizedSearch);
+      }
+      // Eğer option bir nesne ise ve name özelliği varsa
+      else if (option.name) {
+        return this.normalizeString(option.name).includes(normalizedSearch);
+      }
+      return false;
+    });
+  }
+  private normalizeString(input: string): string {
+    return input
+      .normalize('NFD') // Unicode normalization form
+      .replace(/[\u0300-\u036f]/g, '') // Diyakritik işaretleri kaldır
+      .toLowerCase();
   }
 }
